@@ -1,0 +1,85 @@
+homework solutions
+
+### homework 1
+
+### installs if necessary and loads tidyverse and sf, another package which we will be using today
+list.of.packages <- c("tidyverse", "sf")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages, repos = "http://cran.us.r-project.org")
+
+invisible(lapply(list.of.packages, library, character.only = TRUE))
+
+df <- read_delim(file = "Data/base-ic-evol-struct-pop-2013.csv", delim = ",", col_names = TRUE, skip = 5, locale = locale(encoding = "UTF-8")) 
+
+### Question 1
+arrd <- df %>%
+  filter(DEP=="75") %>%
+  select(COM, P13_POP_IMM, P13_POP) %>%
+  group_by(COM) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  mutate(percent_immigrants=P13_POP_IMM/P13_POP)
+
+arrdshp <- read_sf(dsn = "Data/arrondissements", layer = "arrondissements") %>%
+  select(COM=c_arinsee) %>%
+  mutate(COM=as.character(COM)) %>%
+  left_join(arrd, by="COM") %>%
+  select(percent_immigrants)
+
+plot(arrdshp)
+
+### Question 2
+
+rouen <- df %>%
+  filter(COM=="76540") %>%
+  select(IRIS, C13_POP15P_CS3, C13_POP15P) %>%
+  mutate(percent_qualified_professionals=C13_POP15P_CS3/C13_POP15P)
+
+irisshp <- read_sf(dsn = "Data/iris", layer = "CONTOURS-IRIS") %>%
+  select(IRIS=CODE_IRIS) %>%
+  right_join(rouen, by="IRIS") %>%
+  select(percent_qualified_professionals)
+
+plot(irisshp)
+
+
+## homework 4
+
+### Exercise
+
+### Try an example to see what works
+get_political_position_example <- "https://en.wikipedia.org/wiki/Socialist_Party_of_Albania" %>%
+  read_html() %>%
+  html_nodes(xpath='//table[contains(@class, "infobox")]') %>%
+  html_table(fill=TRUE) %>%
+  .[[1]] %>%
+  set_tidy_names() %>%
+  filter(grepl('.olitical.*osition', .[,1])) %>%
+  .[1,2]
+
+### create function based on example
+get_political_position <- function(party_link){
+  paste0("https://en.wikipedia.org", party_link) %>%
+    read_html() %>%
+    html_nodes(xpath='//table[contains(@class, "infobox")]') %>%
+    html_table(fill=TRUE) %>%
+    .[[1]] %>%
+    set_tidy_names() %>%
+    filter(grepl('*olitical.*osition', .[,1])) %>%
+    .[1,2]
+}
+
+### Turn this function into a loop over the links to the PARTIES
+heads$political_position <- ""
+for (i in 1:nrow(heads)) {
+  tryCatch({
+    heads$political_position[i] <- get_political_position(heads$link_party[i])
+    print(paste("Got political position of", heads$leader[i]))
+  }, error = function(e) {
+    print(paste("Error for", heads$leader[i]))
+  })
+}
+
+
+
+

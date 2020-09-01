@@ -1,0 +1,476 @@
+---
+title: "Class 2: Inspecting, cleaning and analysing data"
+output: 
+ html_document:
+    number_sections: true
+    theme: cosmo
+    code_folding: hide
+---
+
+<style>
+  body {background-color:lavender}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("tidyverse")
+require("DT")
+require("descr")
+require("broom")
+
+```
+
+# Today's exercise
+
+We will learn the basic tools that you can use to view, clean and analyse data. In particular, we will revise data wranging from last class, learn how to make nice plots using the package `ggplot2` and learn how to run linear regressions using `lm`.  
+
+# Set-up
+Our aim for today is to clean and explore a dataset coming from a survey on young university graduates' labour market insertion, with a particular focus on gender disparities.
+
+## Installing packages 
+
+For this exercise, you will need to install `descr`, which is not part of the tidyverse. You will need to load the `tidyverse`, `descr` and `broom`, the latter of which is part of the tidyverse but not loaded with the command `library("broom")` as it is not part of the core tidyverse. 
+
+```{r installggplot2, warning=FALSE, message=FALSE, error=FALSE}
+### Basic option: installing and loading packages
+#install.packages("tidyverse")
+#install.packages("descr")
+#install.packages("broom")
+library("tidyverse")
+library("descr")
+library("broom")
+
+
+### Alternative option: installs if necessary and loads packages
+list.of.packages <- c("tidyverse", "descr", "broom")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages, repos = "http://cran.us.r-project.org")
+
+invisible(lapply(list.of.packages, library, character.only = TRUE))
+```
+
+## Reading the data 
+
+All the data for today's exercise can be downloaded from [here](https://drive.google.com/open?id=1AnarTGYwK8fsWR2hHB3uOZ-5aW9OqvSH). Although we provide sources, you do not need to download the data from a given source. 
+
+For this exercise, we use a survey from the French Ministry of education on young graduates labour market insertion that can be downloaded from the [data.gouv website](https://www.data.gouv.fr/fr/datasets/insertion-professionnelle-des-diplomes-de-master-en-universites-et-etablissements-assimil-0/). 
+
+Let's load the data:
+```{r readingx2, warning=FALSE,message=FALSE,error=FALSE}
+df <- read_delim(file = "Data/fr-esr-insertion_professionnelle-master.csv", delim = ";", col_names = TRUE, skip = 0, locale = locale(encoding = "UTF-8"))
+```
+
+# Inspecting the data 
+
+The first thing to do when facing a new dataset is to check what it looks like. Start by clicking on the dataframe's name in the environment window, or run the following code:
+
+```{r viewdata, warning=FALSE,message=FALSE,error=FALSE,eval=FALSE,results = 'hide'}
+View(df)
+```
+
+```{r arrdtab, echo = FALSE, warning = FALSE, message = FALSE, error = FALSE}
+datatable(df)
+```
+
+
+One easy way of getting some general information about all the variables in your dataset is to use the `summary` function:
+```{r summary, warning=FALSE,message=FALSE,error=FALSE}
+summary(df)
+```
+
+Remember, we can select columns by name e.g. `df$diplome`, or columns by number, e.g. `df[,2]`. To select the 5th row of the second column, use `df[5,2]` or `df$diplome[5]`.
+
+The `summary` function tells us that the dataset contains both numeric and character variables, and displays basic information on the distributional properties of numeric variables. 
+
+The type of a variable matters a lot. For instance, R will not let you make operations on a character variable that only contains integers. To convince yourself, try to run this piece of code:
+
+```{r typeofvars, warning=FALSE,message=FALSE, error=FALSE, results = 'hide', eval = FALSE}
+char.var <- as.character(c(1,2,3))
+char.var + 2
+```
+
+# Cleaning the data (revision)
+
+Most of the data cleaning process consists of identifying missing values, and making sure they are recognised by the software as such.
+
+Missing data can be coded in two ways in R: 
+
+- `NA` (not available) when the information is missing
+- `NaN` (not a number) when the value results from an impossible operation
+
+Other ways of coding missing values will not be interpreted as missing data by R, and will hence lead to an inaccurate treatment of the information by the software.
+
+Have a look at the `taux_dinsertion` (employment rate) variable. The variable `taux_dinsertion` should be numeric, but R interpreted it as a character variable. The reason lies in the way missing values were coded for this variable. Some missing values are coded `"ns"`, others `"nd"`.
+
+If we convert such columns as `taux_dinsertion` to numeric, non-numeric entries will be converted to `NA`. 
+
+**Revision question 1**: Mutate at all columns from `nombre_de_reponses` to `salaire_net_mensuel_regional_3eme_quartile`, converting each column to numeric. Here, the function is `as.numeric(.)`. 
+
+```{r cleaning2, warning=FALSE,message=FALSE,error=FALSE,eval = FALSE}
+# recode missing values
+df_clean <- df %>% 
+            ### FILL HERE (one line)
+```
+
+```{r arrdtab123, echo = FALSE, warning = FALSE, message = FALSE, error = FALSE}
+df_clean <- df %>% 
+            mutate_at(vars(nombre_de_reponses:salaire_net_mensuel_regional_3eme_quartile), 
+                      funs(as.numeric(.)))
+```
+
+Let's have a look at our brand new dataset !
+
+```{r cleaning3, warning=FALSE,message=FALSE,error=FALSE, results = 'hide'}
+summary(df_clean)
+```
+
+This is already a much more tractable dataset. Let's now assess the quality of our dataset: try to compute, for each numeric variable, the share of values that are not missing.
+
+**Revision question 2**: Use the function `select_if` to select only the numeric columns. 
+
+```{r missingvalues, warning=FALSE,message=FALSE,error=FALSE,eval = FALSE}
+missing <- df_clean %>% 
+  ### FILL HERE (one line)
+  summarise_all(funs(mean(!is.na(.))))
+```
+
+```{r missingvalues123, echo = FALSE, warning = FALSE, message = FALSE, error = FALSE}
+missing <- df_clean %>% 
+  select_if(is.numeric) %>% 
+  summarise_all(funs(mean(!is.na(.))))
+```
+
+Unfortunately, our dataset has a lot of missing values. We need to keep this in mind since it will impact a lot the way we can interpret our results. It will also have an impact on the options to specfify in order to be able to use basic R functions. For instance, try to compute the mean of the variable `femmes` (women) using the `mean()` function.
+
+```{r meanmissing, warning=FALSE,message=FALSE,error=FALSE}
+mean_women <- mean(df_clean$femmes, na.rm=T)
+```
+
+The option *na.rm=T* tells R to discard missing values, and make its computations on filled values only. If you simply write `mean(df_clean$femmes)`, R returns a missing value because it fails to compute the mean of a vector containing non-numeric elements. 
+
+# Data visualisation with `ggplot2`
+
+Now that we have cleaned our data, we are ready to use ggplot! 
+
+A graph built with `ggplot` is basically a succession of layers that allow you to customize your graph indefinitely. A cheat sheet for the `ggplot2` package can by found [at this link](https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf).
+
+A `ggplot` graph can be obtained by specifying 3 elements: 
+
+- the **database** you are using
+- the **aesthetics** (aes) you want for your graph: the x and y variables, the colour, the line types 
+- the **geometry**: the type of graph you want (histogram, scatter plot, line, etc...)
+
+The first layer is always of the form:
+
+- `ggplot(data, aes=(x,options))` in the one variable case
+- `ggplot(data, aes=(x,y,options))` in the two variable case
+
+Using the + sign, you can then add all the layers that you want to your graph.
+
+## One variable case
+
+Let's try to plot the distribution of employment rates 30 months after graduation. First, select in the database all the observations that correspond to the respondents' status 30 months after graduation, using the ``situation`` variable. The modality "30 mois après le diplôme" means 30 months after graduation.
+
+**Revision question 3**: Filter the dataframe `df_clean` to all rows where the `situation` variable equals `"30 mois après le diplôme"`.
+
+```{r dataplot, warning=FALSE,message=FALSE,error=FALSE, eval=FALSE}
+df_graph <- df_clean %>% 
+  ### FILL HERE (one line)
+```
+
+```{r dataplot123,echo = FALSE,warning=FALSE,message=FALSE,error=FALSE}
+df_graph <- df_clean %>% 
+  filter(situation == "30 mois après le diplôme")
+```
+
+Let's write the first layer, where we specify:
+
+- the data frame (**df_graph**)
+- the variable to be plotted (**taux_dinsertion**)
+
+```{r plot1, warning=FALSE,message=FALSE,error=FALSE}
+plot1 <- ggplot(df_graph, aes(x=taux_dinsertion)) 
+```
+
+To see the plot, just type the plot's name:
+
+```{r plot1bis, warning=FALSE,message=FALSE,error=FALSE, results = 'hide', eval = FALSE}
+plot1
+```
+
+This gives an empty plot: we have specified the dataset that we want to use for our plot, the variable that we want to plot in this dataset. Unless otherwise specified, all the layers that we will add to this graph will use `df_graph` as data frame and `taux_dinsertion` as variable to be plotted.
+
+We now need to tell R which kind of graph we want to obtain, by adding a **geometry** layer.
+
+Commonly used **geometry** functions (**geoms**) are:
+
+* `geom_density` for density plots of continuous variables
+* `geom_histogram` to plot the distribution of discrete variables
+* `geom_bar` to plot categorical variables
+* `geom_point` for scatter plots (two-variable case)
+
+Since employment rates are integers, let's use the `geom_histogram` function.
+
+```{r plot2, warning=FALSE,message=FALSE,error=FALSE}
+plot1 <- ggplot(df_graph, aes(x=taux_dinsertion)) +
+         geom_histogram()
+```
+
+We have added the `geom_histogram` layer to our plot, and as we have not specified any argument to the `geom_histogram()` function, R used the default dataframe and aesthetics: those that we mentioned in the first layer.
+ 
+Let's now make the graph look nicer by adding the `theme_classic` layer and changing the x axis label.
+
+```{r plot3, warning=FALSE,message=FALSE,error=FALSE}
+plot1 <- ggplot(df_graph, aes(x=taux_dinsertion)) +
+  geom_histogram() +
+  theme_classic() +
+  labs(x = "Employment rates")
+```
+
+Suppose you now want to add a vertical line that shows the mean of the distribution to the graph. First, create a dataset called **df.mean.empl** that contains the variable **mean.empl**, where **mean.empl** is the average employment rate. Do not forget to tell R to discard missing values.
+
+```{r mean.year, warning=FALSE,message=FALSE,error=FALSE}
+df.mean.empl<- df_graph %>% 
+  summarise(mean.empl = mean(taux_dinsertion, na.rm=T))
+```
+
+Second, use the `geom_vline` geom to add the mean to the graph. The `geom_vline` geom adds a vertical line at the value of the x axis that you specify in the aesthetics: `aes(xintercept= value)`. We have stored the "value" information in the variable **mean.empl**, which is itself in the **df.mean.empl** data frame. In order to call the `geom_vline` geom, let's give all these pieces of information to R, by using the following syntax: `geom_vline(data=mean.empl, aes(xintercept= empl.mean), options)`
+
+```{r plot3bis, warning=FALSE,message=FALSE,error=FALSE}
+plot1 <- ggplot(df_graph, aes(x=taux_dinsertion)) +
+  geom_histogram() +
+  theme_classic() +
+  labs(x = "Employment rates") +
+  geom_vline(data=df.mean.empl, aes(xintercept=mean.empl), linetype="dashed", size=1) 
+
+plot1
+```
+
+We now have an idea of the distribution of the respondents' employment rates 30 months after graduation, for the years 2010 to 2014. 
+
+### Subgroup plots
+
+Two elements are necessary in order to make subgroup plots:
+
+* a **factor** variable whose values define the groups (e.g. gender, year, etc...)
+* an **aes** option that tells R to divide the plot based on this factor variable values
+    + **colour** if you are plotting a line 
+    + **fill** if you are plotting an area/bar/histogram   
+
+Let's try and see whether the distribution of employment rates has changed between 2010 and 2014. In order to do this, we first need to convert the variable **annee** (year) to a factor variable. 
+
+```{r plot4, warning=FALSE,message=FALSE,error=FALSE}
+df_graph.evol  <- df_graph %>% 
+                  filter(annee %in% c("2010","2014")) %>% 
+                  mutate_at(vars(annee), funs(factor(.)))
+```
+
+By adding the `fill = condition` option in the aesthetics of the first layer, you can tell R that it needs to plot as many histograms as there are values in the **condition** variable (or grouping variable, in our case: **annee**). The first layer hence becomes: `ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee))`.
+
+You can also enter arguments such as `position` or `binwidth` to the `geom_histogram` layer to adjust the design of the graph. For instance, you may want to put the two distributions side by side. In this case you need to specify the option `position="dodge"`.
+
+```{r plot5, warning=FALSE,message=FALSE,error=FALSE}
+plot2 <- ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee)) + 
+  geom_histogram(binwidth=1, position="dodge") + 
+  theme_classic() +
+  labs(x = "Employment rates")
+```
+
+Alternatively, you may want to overlay the two densities ; in this case you need to specify the option `position="identity"`:
+
+```{r plot6, warning=FALSE,message=FALSE,error=FALSE}
+
+plot2 <- ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee)) + 
+  geom_histogram(binwidth=.5, alpha=.5, position="identity") + 
+  theme_classic() +
+  labs(x = "Employment rates")
+ 
+```
+
+Let's now add the means of the distributions to the graph. 
+First, create a dataset called **mean.empl.year** that contains the variables **annee** and **mean.empl**, where **mean.empl** takes as values the employment rates in each year.
+
+```{r plot7, warning=FALSE,message=FALSE,error=FALSE}
+mean.empl.year <- df_graph.evol %>% 
+  group_by(annee) %>% 
+  summarise(mean.empl = mean(taux_dinsertion, na.rm = T)) %>%
+  ungroup()
+```
+
+Second, use `geom_vline` command to add the means to the graph. It's close to what you've done before, but do not forget to use the **colour** option in the aesthetics to tell R that the colour of the lines should refer to the variable **annee**. The syntax is hence the following: `geom_vline(data, aes(xintercept, colour=annee), options)`.
+
+```{r plot7bis, warning=FALSE,message=FALSE,error=FALSE}
+plot2 <- ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee)) + 
+  geom_histogram(binwidth=.5, alpha=.5, position="identity") + 
+  theme_classic() +
+  labs(x = "Employment rates") +
+  geom_vline(data=mean.empl.year, aes(xintercept=mean.empl,  colour=annee), linetype="dashed", size=1) 
+
+plot2
+```
+
+You can now save your graph as pdf  in the Output folder using `ggsave`.
+
+```{r saveplot, warning=FALSE,message=FALSE,error=FALSE}
+ggsave("Output/hist.empl.rate.pdf", width = 5, height = 5)
+```
+
+## Two-variable case
+
+Let's see how the employment rate relates to the rate of female students in the university (**femmes**). Start by keeping only the universities for which the rate of female students is filled.
+
+```{r dfwomen, warning=FALSE,message=FALSE,error=FALSE}
+df_women <- df_clean %>% 
+            filter(!is.na(femmes))
+```
+
+Then, try to plot the relationship between the two variables of interest. The syntax is very close to the one variable case:
+
+```{r plot8, warning=FALSE,message=FALSE,error=FALSE}
+plot3 <- ggplot(df_women, aes(x=femmes, y = taux_dinsertion)) + 
+  geom_point() + 
+  theme_classic() 
+```
+
+It looks like the employment rates are lower in universities with more female students, on average. Let's check whether this is true by fitting a line to the scatter plot.
+
+Our new layer is going to be `geom_smooth`, and we will specify that we want to fit a straight line by telling R that the method used to fit the line should be **"lm"** (where "lm" stands for linear model).
+
+```{r plot9, warning=FALSE,message=FALSE,error=FALSE}
+
+plot3 <- ggplot(df_women, aes(x=femmes, y = taux_dinsertion)) + 
+  geom_point() + 
+  geom_smooth(method='lm') +
+  theme_classic() 
+ 
+plot3
+```
+
+Our first impression was right: in universities where a higher fraction of students are females, the employment rates 30 months after graduation are lower on average. 
+  
+# Analysing the relationships between variables
+
+## Two categorical variables
+A usual way of studying the relationship between two categorial variables is to see how one of the two variables is distributed for each of the possible values of the other variable. This is called cross tabulation.
+
+Let's try and see how the subjects in which the students graduated (**code_du_domaine**) relate to the share of women in the university, for the universities whose share of women is not missing. In order to do so:
+
+1. convert the **femmes** (women) variable into a categorical variable by defining quartiles of the **femmes** variable, and call this variable **quartile_women**. Quartiles can be defined using the function `ntile(variable, number of quantiles)`
+2. For readability reasons, apply labels to the **code_du_domaine** variable such that to the levels "DEG","LLA","MEEF","SHS",and "STS" the labels "Economics", "Humanities", "Teaching","Human Sciences" and "Sciences" are associated. You can use the `factor()` function, with the following syntax: `factor(variable, levels = levels of the variable, labels = labels of the variable)`.
+
+```{r dfcrosstabulation, warning=FALSE,message=FALSE,error=FALSE}
+df_women <- df_women %>%
+            mutate(quartile_women = ntile(femmes, 4)) %>%
+            mutate_at(vars(code_du_domaine), funs(factor(.,
+                                   levels = c("DEG","LLA","MEEF","SHS","STS"),
+                                   labels = c("Economics", "Humanities", "Teaching","Human Sciences","Sciences"))))
+```
+
+Let's now see the distribution of subjects based on the quartile to which the university belongs using `crosstab`. The syntax of the function is as follows: crosstab(x,y,options). In the options you can specify that you want to see the proportions in rows (i.e. you want the row percentages to sum to 100) by typing `prop.r =T`. 
+
+```{r crosstabulation, warning=FALSE,message=FALSE,error=FALSE}
+crosstab(df_women$quartile_women,df_women$code_du_domaine, prop.r =T, plot = F, cell.layout = F, dnn = c("Quartiles","Subjects"))
+```
+
+## One continuous and one categorical variable
+
+The most typical way of summarising information in the one continuous, one categorical variable case is to produce summary statistics of the continuous variable for each value of the categorical variable.
+
+```{r contcat, warning=FALSE,message=FALSE,error=FALSE}
+df_women %>% 
+  group_by(quartile_women) %>% 
+  summarise(n_universities = n(), 
+            mean_empl = mean(taux_dinsertion, na.rm=T),
+            sd_empl = sd(taux_dinsertion, na.rm=T),
+            med_empl = median(taux_dinsertion, na.rm=T),
+            min_empl = min(taux_dinsertion, na.rm=T),
+            max_empl = max(taux_dinsertion, na.rm=T),
+            n_missing_empl = sum(is.na(taux_dinsertion))) %>%
+  ungroup()
+```
+
+## Two continuous variables
+
+In this section, we are going to use `lm` to make a linear regression of the employment rate on the rate of female students (**femmes**) in the university. This will be the regression counterpart to the graph that we plotted before: making a linear regression basically consists of fitting a line on a scatter. 
+
+We want to establish a linear relationship between two variables y and x, of the following form: 
+
+$$y = \alpha + \beta x + \epsilon$$
+
+where:
+
+- $\alpha$ is the intercept
+- $\beta$ is the slope of the line
+- $\epsilon$ is the error term 
+
+The syntax of lm is as follows: `lm(formula, data)`. If you want to regress y on x (i.e. you consider y in the y axis and x in the x axis), the formula writes: `y ~ x`. For multiple x values, the formula writes `y ~ x1 + x2` etc.. To use all variables in the dataframe (except y), the formula writes `y ~ .`. 
+
+Let's run the regression of the employment rate on the rate of female students, and store the output in an object called fit.
+
+```{r reg1, warning=FALSE,message=FALSE,error=FALSE}
+fit <- lm(taux_dinsertion ~ femmes, data = df_women)
+```
+
+The output is a list, i.e. an object that contains several other objects of any type. In order to see all the objects in the list, you can write the model's name (fit) together with a $ sign: type `fit$` without pressing Enter. "fit" contains an object called "coefficient", another object called "residuals", and so on so forth. Let's have a look at the coefficients:
+
+```{r reg1bis, warning=FALSE,message=FALSE,error=FALSE, results = 'hide'}
+fit$coefficients
+```
+
+When the share of women is equal to zero, we predict the employment rate to be 90%, and we predict the slope of the fitted line to be of -0.04, i.e. an increase in the rate of female students is associated with a decrease in the employment rate, on average. 
+
+In general, one not only wants to see the coefficients of the regression, but also their standard errors, as well as a few statistics to assess the significance of the coefficients. The `summary` function is useful in this regard:
+
+```{r reg1ter, warning=FALSE,message=FALSE,error=FALSE, results = 'hide'}
+summary(fit)
+```
+
+To convert the key statistics to a dataframe (tibble), use the function `tidy` from the broom package in the tidyverse.
+
+```{r reg1quart, warning=FALSE,message=FALSE,error=FALSE}
+tidy(fit)
+```
+
+
+## Statistical tests
+
+Statistical tests are very useful tools of statistical inference. We will here see how to implement two kinds of tests: 
+
+* Student's t-test of equality of means
+* The Chi-square test of independence
+
+### Student's t-test
+
+The Student's t-test of equality of means allows you to test whether the means of two variables are equal, statistically speaking. Let's check whether the employment rates of universities belonging to the first quartile is statistically equal to the employment rates of universities belonging to the last quartile.
+
+Start by defining 2 datasets, one containing the first quartile universities, the second containing the last quartile universities. 
+
+```{r dftest, warning=FALSE,message=FALSE,error=FALSE, results = 'hide'}
+quartile1 <- df_women %>% filter(quartile_women ==1)
+quartile4 <- df_women %>% filter(quartile_women ==4)
+```
+
+Now, compare the mean employment rates of the two groups using `t.test(x,y)`.
+
+```{r stattests, warning=FALSE,message=FALSE,error=FALSE}
+t.test(quartile1$taux_dinsertion, quartile4$taux_dinsertion)
+```
+
+### The Chi-square test of independence
+
+The Chi square test can be used to test the independence of two categorical variables. Let's see whether the quartile of the university is independent from the region (**academie**).
+
+```{r chisq, warning=FALSE,message=FALSE,error=FALSE}
+chisq.test(df_women$academie, df_women$quartile_women)
+```
+
+For many types of test, you can use the `tidy` function to quickly store the results in a dataframe. 
+
+# Exercises
+
+1. Univariate plot: create a density plot of the continuous variable of your choice (aside from `taux_dinsertion`). Label your axes and give the plot a title.
+2. Bivariate plot: create a scatter plot between two variables and overlay a smooth line approximating the relationship (aside from the example in the class). Label your axes and give the plot a title.
+3. Linear regression: choose a continuous y variable and three x variables, at least one of which is continuous and one of which is a factor variable. Run a linear regression and use the `tidy` function to store the key statistics in a dataframe. 
+4. Follow the instructions to prepare for [Class 3](https://introtor-pse.appspot.com/class3ape.html).
+
+Upload your scripts and graphs at the link provided on the homepage.

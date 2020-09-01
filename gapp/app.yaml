@@ -1,0 +1,44 @@
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /
+  static_files: www/index.html
+  upload: www/index.html
+
+- url: /class1ape\.html
+  static_files: www/class1ape.html
+  upload: www/class1ape.html
+
+- url: /class1ppd\.html
+  static_files: www/class1ppd.html
+  upload: www/class1ppd.html
+
+- url: /class2ape\.html
+  static_files: www/class2ape.html
+  upload: www/class2ape.html
+
+- url: /class2ppd\.html
+  static_files: www/class2ppd.html
+  upload: www/class2ppd.html
+
+- url: /class3ape\.html
+  static_files: www/class3ape.html
+  upload: www/class3ape.html
+
+- url: /class3ppd\.html
+  static_files: www/class3ppd.html
+  upload: www/class3ppd.html
+
+- url: /class4ape\.html
+  static_files: www/class4ape.html
+  upload: www/class4ape.html
+
+- url: /class4ppd\.html
+  static_files: www/class4ape.html
+  upload: www/class4ape.html
+
+- url: /class3examplehomework\.pdf
+  static_files: www/example_homework.pdf
+  upload: www/example_homework.pdf

@@ -1,0 +1,61 @@
+---
+title: "Introduction to R"
+author: "Hannah Bull and Pauline Charousset"
+date: "Semester 1, 2019"
+output: 
+ html_document:
+    number_sections: true
+    theme: cosmo
+---
+
+<style>
+  body {background-color:lavender}
+</style>
+
+# Class preparation
+
+Please download R and RStudio before the first class. You can find installation instructions [here](http://web.cs.ucla.edu/~gulzar/rstudio/).
+
+\____________________
+
+# PPD 
+
+## Links to classes PPD
+
+[Class 1 PPD](https://introtor-pse.appspot.com/class1ppd.html): Introduction to data wrangling with the tidyverse
+
+[Class 2 PPD](https://introtor-pse.appspot.com/class2ppd.html): Inspecting, cleaning, plotting and analysing data
+
+[Class 3 PPD](https://introtor-pse.appspot.com/class3ppd.html): Writing LaTeX articles and making websites using R Markdown
+
+[Class 4 PPD](https://introtor-pse.appspot.com/class4ppd.html): Introduction to web scraping with R
+
+\____________________
+
+# APE
+
+## Links to classes APE
+
+[Class 1 APE](https://introtor-pse.appspot.com/class1ape.html): Introduction to data wrangling with the tidyverse
+
+[Class 2 APE](https://introtor-pse.appspot.com/class2ape.html): Inspecting, cleaning, plotting and analysing data
+
+[Class 3 APE](https://introtor-pse.appspot.com/class3ape.html): Writing LaTeX articles and making websites using R Markdown
+
+[Class 4 APE](https://introtor-pse.appspot.com/class4ape.html): Introduction to web scraping with R
+
+## Homework submission link APE
+
+[Submission link](https://script.google.com/macros/s/AKfycbzurFxpdVKaIVVRduMGj0Wzk6OMn2pL99vGCGrY/exec) 
+
+IMPORTANT: all homeworks should be submitted in a zipped folder called **classX_firstname_lastname.zip**, where $X\in\{1,2,3,4\}$, e.g. **class1_hannah_bull.zip**.
+
+## APE slack channel 
+
+I prefer that we communicate via Slack rather than email, that way myself and class members can all participate in discussion of R problems throughout the year. 
+
+[Slack invitation link](https://join.slack.com/t/introtor/shared_invite/enQtNzQ1NzA4NzM0MzI0LTE3NzQ3YmMzYzIxYTEyYmNkZTlmY2E5NWViY2M3OTQ0Njg3ZTgwNWIzN2Y3ZjJmY2UyZDNmZjQ0MjhhMDg2YjA)
+
+\____________________
+
+

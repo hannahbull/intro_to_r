@@ -1,0 +1,82 @@
+---
+title: "test_class3"
+author: "Hannah Bull"
+date: "10 septembre 2019"
+output: pdf_document
+bibliography: bibliography.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE, warning=FALSE, message=FALSE, error=FALSE}
+list.of.packages <- c("tidyverse", "knitr", "haven", "stargazer")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages, repos = "http://cran.us.r-project.org")
+
+library("tidyverse")
+library("knitr")
+library("haven")
+library("stargazer")
+
+df <- read_dta("Data/Score_US.dta") # you might use a different function depending on your file format.
+```
+
+## R Markdown
+
+[link to Course website](https://introtor-pse.appspot.com/) 
+
+*italics*
+
+**bold** 
+
+exponent^2^
+
+$y = \alpha + \beta x + \epsilon$
+
+Row names | Values 
+----------| ------
+Row 1     | Value 1
+Row 2     | Value 2
+
+
+```{r, include = FALSE}
+table <- df %>%
+  select(CHILDID, reading = X4RSCALK1, maths = X4MSCALK1) %>%
+  gather(key = subject, value = score, reading:maths) %>%
+  group_by(subject) %>%
+  summarise(Mean = mean(score, na.rm = T), 
+            SD = sd(score, na.rm = T), 
+            Min = min(score, na.rm = T), 
+            Max = max(score, na.rm = T)) %>%
+  ungroup()
+```
+
+```{r, echo=FALSE}
+kable(table, caption = 'This is my caption')
+```
+
+```{r, echo = FALSE, results='asis', warning=FALSE, error=FALSE, message=FALSE }
+fit <- lm(X1RSCALK1 ~ X1MSCALK1, data = df)
+stargazer(fit,  header=FALSE, type='latex')
+```
+
+```{r , fig.width = 5, fig.height = 4, warning = FALSE, echo = FALSE, error = FALSE, message = FALSE, fig.align='center'}
+ggplot(data = df, aes(x = X4RSCALK1)) + 
+      geom_histogram() + 
+      theme_classic() + 
+      labs(x = "Reading score") 
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+cite @kmenta2010mostly
