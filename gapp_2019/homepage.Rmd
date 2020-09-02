@@ -1,7 +1,7 @@
 ---
 title: "Introduction to R"
 author: "Hannah Bull and Pauline Charousset"
-date: "Semester 1, 2019"
+date: "Semester 1, 2020"
 output: 
  html_document:
     number_sections: true
@@ -50,12 +50,5 @@ Please download R and RStudio before the first class. You can find installation 
 
 IMPORTANT: all homeworks should be submitted in a zipped folder called **classX_firstname_lastname.zip**, where $X\in\{1,2,3,4\}$, e.g. **class1_hannah_bull.zip**.
 
-## APE slack channel 
-
-I prefer that we communicate via Slack rather than email, that way myself and class members can all participate in discussion of R problems throughout the year. 
-
-[Slack invitation link](https://join.slack.com/t/introtor/shared_invite/enQtNzQ1NzA4NzM0MzI0LTE3NzQ3YmMzYzIxYTEyYmNkZTlmY2E5NWViY2M3OTQ0Njg3ZTgwNWIzN2Y3ZjJmY2UyZDNmZjQ0MjhhMDg2YjA)
-
-\____________________
 
 

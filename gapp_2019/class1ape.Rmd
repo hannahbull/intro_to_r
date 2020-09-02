@@ -4,7 +4,6 @@ output:
  html_document:
     number_sections: true
     theme: cosmo
-    code_folding: hide
 ---
 
 <style>
@@ -18,7 +17,7 @@ require("tidyverse")
 require("sf")
 require("DT")
 iris <- readRDS("Output/iris.rds")
-arrd <- readRDS("Output/arrd.rds") %>% select(Arrondissement=COM, P13_POP0014_pc:P13_POP75P_pc) %>% 
+arrd <- readRDS("Output/arrd.rds") %>% select(Arrondissement=COM, P13_POP0014:P13_POP75P) %>% 
   mutate(Arrondissement = substr(Arrondissement, 4, 5)) %>%
   mutate(Arrondissement = paste0("Paris ", Arrondissement))
 ```
@@ -37,7 +36,7 @@ We then aim to plot this data on maps of Paris.
 
 # Set-up
 
-There are many different libraries in the R universe for a wide variety of tasks. In this first class, we will be covering methods to import and transform data in R using the `tidyverse`.
+There are many different libraries in the R universe for a wide variety of tasks. In this first class, we will be covering methods to import and transform data in R using the `tidyverse`. I try to adhere to the [tidyverse style guide](https://style.tidyverse.org/). 
 
 ![Libraries in the tidyverse](Data/images/tidyverse.png)
 
@@ -66,7 +65,7 @@ Note on running scripts: To run the whole script, click run. To run a part of th
 
 ## Commenting code
 
-It is always a good idea to comment lines of code. Use `#` at the start of a line in order place a comment or in order to disactivate the line so that it does not run. 
+It is always a good idea to comment lines of code. Use `#` at the start of a line in order place a comment or in order to deactivate the line so that it does not run. 
 
 ## Installing packages 
 
@@ -93,22 +92,26 @@ invisible(lapply(list.of.packages, library, character.only = TRUE))
 
 # Reading data 
 
-All the data for today's exercise can be downloaded from [here](https://drive.google.com/open?id=115sQqs8LVqQmsKYRORTIAu3KZvUHczh0). Although we provide sources, you do not need to download the data from a given source. 
+All the data for today's exercise can be downloaded from [here](https://drive.google.com/open?id=115sQqs8LVqQmsKYRORTIAu3KZvUHczh0). 
 
-For this exercise, we use the French population data at the IRIS level (50k units in metropolitan France) that can be downloaded from the [Insee website](https://www.insee.fr/fr/statistiques/2386737). The shapefiles for the IRIS can be downloaded from [here](http://professionnels.ign.fr/contoursiris). The shapefiles for the arrondissements in Paris can be downloaded from [here](https://opendata.paris.fr/explore/dataset/arrondissements/).
+This folder contains the French population data at the IRIS level (50k units in metropolitan France) [(source: Insee website)](https://www.insee.fr/fr/statistiques/2386737), the shapefiles for the IRIS [(source)](http://professionnels.ign.fr/contoursiris) and the shapefiles for the arrondissements in Paris [(source)](https://opendata.paris.fr/explore/dataset/arrondissements/).
 
 ## Reading delimited data
 
 This data is in the form of an .csv (comma-separated values). This can be read using the function `read_delim` the tidyverse package `readr`. To the left of the `<-` sign is the new R object we wish to define, to the right is how we wish to define it. 
 
 ```{r readingxl, warning=FALSE,message=FALSE,error=FALSE}
-df <- read_delim(file = "Data/base-ic-evol-struct-pop-2013.csv", delim = ",", col_names = TRUE, skip = 5, locale = locale(encoding = "UTF-8"))
+df <- read_delim(file = "Data/base-ic-evol-struct-pop-2013.csv", 
+                 delim = ",", 
+                 col_names = TRUE, 
+                 skip = 5, 
+                 locale = locale(encoding = "UTF-8"))
 ```
 
 The options for the function `read_delim` can be found by typing `?? read_delim` in the console. Here, we just present a few frequently used options. 
 
 Argument      | Description
-------------- | -------------
+--------------------- | ---------------------------------------------------
 file (required)             | path to file (relative to R project)
 delim (required)          | delimiter
 col_names (TRUE by default) | TRUE if first line is column names, else FALSE or a vector of column names
@@ -150,9 +153,9 @@ We want to select only the columns `IRIS`, `COM`, `TYP_IRIS`, `P13_POP` and the 
 
 
 ```{r filterselect, warning=FALSE,message=FALSE,error=FALSE}
-iris <- df %>% 
-  filter(DEP=="75") %>%
-  select(IRIS, COM, TYP_IRIS, P13_POP, P13_POP0014:P13_POP75P) 
+iris <- df %>% # creates a copy of df called iris
+  filter(DEP=="75") %>% # filters ROWS where departement == 75 (Paris)
+  select(IRIS, COM, P13_POP, P13_POP0014:P13_POP75P) # selects COLS
 ```
 
 The order of these two lines matters, if we select the columns first, then we cannot use the variable `DEP` to filter the variables. It is also possible to deselect variables by putting a minus sign before the variable, e.g. `select(-COM)`. 
@@ -176,14 +179,26 @@ Statement      | Meaning
 
 ## Mutating variables
 
-We now wish to convert all the population variables to percentages, and the `TYP_IRIS` variable to a factor. To modify one, many or all columns, we use the functions `mutate`, `mutate_at` or `mutate_all`. 
+We now wish to convert all the population variables to percentages. To modify one, many or all columns, we use the functions `mutate`, `mutate_at` or `mutate_all`. 
+
+To convert one variable, say `P13_POP0014`, to a percentage, we divide this variable by `P13_POP`. This can be done with the function `mutate`. We can continue changing each variable to a percentage like this, but it will become quite cumbersome! 
 
 ```{r mutate, warning=FALSE,message=FALSE,error=FALSE}
 iris <- df %>% 
   filter(DEP=="75") %>%
-  select(IRIS, COM, TYP_IRIS, P13_POP, P13_POP0014:P13_POP75P) %>%
-  mutate(TYP_IRIS = as.factor(TYP_IRIS)) %>%
-  mutate_at(vars(P13_POP0014:P13_POP75P), funs(pc=./P13_POP))
+  select(IRIS, COM, P13_POP, P13_POP0014:P13_POP75P) %>%
+  mutate(P13_POP0014 = P13_POP0014/P13_POP) %>%
+  mutate(P13_POP1529 = P13_POP1529/P13_POP) %>%
+  mutate(P13_POP3044 = P13_POP3044/P13_POP) 
+```
+
+A better way to do this is to use `mutate_at` to mutate multiple variables at once. 
+
+```{r mutate2, warning=FALSE,message=FALSE,error=FALSE}
+iris <- df %>% 
+  filter(DEP=="75") %>%
+  select(IRIS, COM, P13_POP, P13_POP0014:P13_POP75P) %>%
+  mutate_at(vars(P13_POP0014:P13_POP75P), ~ (./P13_POP))
 ```
 
 ### Conditional mutations
@@ -197,10 +212,9 @@ We notice that there are some IRIS for which the population is 0. In these cases
 ```{r mutateif, warning=FALSE,message=FALSE,error=FALSE}
 iris <- df %>% 
   filter(DEP=="75") %>%
-  select(IRIS, COM, TYP_IRIS, P13_POP, P13_POP0014:P13_POP75P) %>%
-  mutate(TYP_IRIS = as.factor(TYP_IRIS)) %>%
-  mutate_at(vars(P13_POP0014:P13_POP75P), funs(pc=./P13_POP)) %>%
-  mutate_if(is.numeric, funs(ifelse(is.nan(.), 0, .)))
+  select(IRIS, COM, P13_POP, P13_POP0014:P13_POP75P) %>%
+  mutate_at(vars(P13_POP0014:P13_POP75P), ~ (./P13_POP)) %>%
+  mutate_if(is.numeric, ~ (ifelse(is.nan(.), 0, .)))
 ```
 
 ### Some basic string operations
@@ -212,26 +226,30 @@ Say we wish to convert the column `COM` into a more readable string, e.g. instea
 ```{r strings, warning=FALSE,message=FALSE,error=FALSE}
 iris <- df %>% 
   filter(DEP=="75") %>%
-  select(IRIS, COM, TYP_IRIS, P13_POP, P13_POP0014:P13_POP75P) %>%
-  mutate(TYP_IRIS = as.factor(TYP_IRIS)) %>%
-  mutate_at(vars(P13_POP0014:P13_POP75P), funs(pc=./P13_POP)) %>%
-  mutate_if(is.numeric, funs(ifelse(is.nan(.), 0, .))) %>%
+  select(IRIS, COM, P13_POP, P13_POP0014:P13_POP75P) %>%
+  mutate_at(vars(P13_POP0014:P13_POP75P), ~ (./P13_POP)) %>%
+  mutate_if(is.numeric, ~ (ifelse(is.nan(.), 0, .))) %>%
   mutate(name_arrd = substr(COM, 4, 5)) %>%
   mutate(name_arrd = paste0("Paris ", name_arrd)) 
 ```
 
 ## Grouping and aggregating variables
 
-We now wish to group the IRISes by arrondissement, in order to obtain aggregated statistics of the population by arrondissement. Using the function `group_by`, we can group the variables by `COM`, which indicates the arrondissement. We can use the function `summarise_all`, which works in the same way as `mutate_all`, to aggregate our data by group. After this aggregation, we need to `ungroup` our data frame. 
+We now wish to group the IRISes by arrondissement, in order to obtain aggregated statistics of the population by arrondissement. Using the function `group_by`, we can group the variables by `COM`, which indicates the arrondissement. 
+
+To apply a function to a column by group, we use `summarise`. As for `mutate`, there is also `summarise_at`, `summarise_all` and `summarise_if`. 
+
+After this aggregation, we need to `ungroup` our data frame. 
 
 ```{r groups, warning=FALSE,message=FALSE,error=FALSE}
-arrd <- iris %>% 
+arrd <- df %>% 
+  filter(DEP=="75") %>%
   select(COM, P13_POP, P13_POP0014:P13_POP75P) %>%
   group_by(COM) %>%
-  summarise_all(funs(sum(.))) %>%
+  summarise_all(~ (sum(.))) %>%
   ungroup %>%
-  mutate_at(vars(P13_POP0014:P13_POP75P), funs(pc=./P13_POP)) %>%
-  mutate_if(is.numeric, funs(ifelse(is.nan(.), 0, .)))
+  mutate_at(vars(P13_POP0014:P13_POP75P), ~ (./P13_POP)) %>%
+  mutate_if(is.numeric, ~ (ifelse(is.nan(.), 0, .)))
 ```
 
 The final two lines are the same as before. 
@@ -250,53 +268,53 @@ wide <- long %>%
 
 ## Writing data 
 
-We can write data in .csv format using `write_csv`. We can also use .rds format (r dataset) in order to preserve the tibble attributes, such as which variables are factor variables. 
+We can write data in .csv format using `write_csv`. We can also use .rds format (r dataset) in order to preserve the tibble attributes, such as which variables are numeric and character variables. 
 
 ```{r savingdata, warning=FALSE,message=FALSE,error=FALSE}
 iris <- df %>% 
   filter(DEP=="75") %>%
-  select(IRIS, COM, TYP_IRIS, P13_POP, P13_POP0014:P13_POP75P) %>%
-  mutate(TYP_IRIS = as.factor(TYP_IRIS)) %>%
-  mutate_at(vars(P13_POP0014:P13_POP75P), funs(pc=./P13_POP)) %>%
-  mutate_if(is.numeric, funs(ifelse(is.nan(.), 0, .))) %>%
+  select(IRIS, COM, P13_POP, P13_POP0014:P13_POP75P) %>%
+  mutate_at(vars(P13_POP0014:P13_POP75P), ~ (./P13_POP)) %>%
+  mutate_if(is.numeric, ~ (ifelse(is.nan(.), 0, .))) %>%
   mutate(name_arrd = substr(COM, 4, 5)) %>%
   mutate(name_arrd = paste0("Paris ", name_arrd)) %>%
   write_csv("Output/iris.csv") %>%
   write_rds("Output/iris.rds") 
 
-arrd <- iris %>% 
+arrd <- df %>% 
+  filter(DEP=="75") %>%
   select(COM, P13_POP, P13_POP0014:P13_POP75P) %>%
   group_by(COM) %>%
-  summarise_all(funs(sum(.))) %>%
+  summarise_all(~ (sum(.))) %>%
   ungroup %>%
-  mutate_at(vars(P13_POP0014:P13_POP75P), funs(pc=./P13_POP)) %>%
-  mutate_if(is.numeric, funs(ifelse(is.nan(.), 0, .))) %>%
+  mutate_at(vars(P13_POP0014:P13_POP75P), ~ (./P13_POP)) %>%
+  mutate_if(is.numeric, ~ (ifelse(is.nan(.), 0, .))) %>%
   write_csv("Output/arrd.csv") %>%
   write_rds("Output/arrd.rds") 
 
 ```
 
-## Joins
+## Joining two datasets
 
 There are four key types of joins.
 
 Function      | Meaning
-------------- | -------------
-`left_join(a, b, by="x")`           | Join matching rows from b to a
-`right_join(a, b, by="x")`        | Join matching rows from a to b
-`inner_join(a, b, by="x")`   | Join data retaining rows in both sets
-`full_join(a, b, by="x")`       | Join data retaining all rows
+------------------------------- | ------------------------------------------------------
+`a %>% left_join(b, by="x")`           | Join matching rows from b to a
+`a %>% right_join(b, by="x")`        | Join matching rows from a to b
+`a %>% inner_join(b, by="x")`   | Join data retaining only rows that match in a and b
+`a %>% full_join(b, by="x")`       | Join data retaining all rows from a and b
 
 We will apply a join with geographical data, in order to display our variables on a map. 
 
 ### Import geographical data
 
-Shapefiles are a common format of geographical data. We can import them using the package `sf`, which is not part of the tidyverse, but follows the same syntax. We select only the variable corresponding to the IRIS code, and call this `IRIS` to match our other data set. We then apply a `right_join` to join our data to the geographical data to the iris tibble that we have created. 
+Shapefiles are a common format of geographical data. We can import them using the package `sf`, which is not part of the tidyverse, but follows the same syntax. We select only the variable corresponding to the IRIS code, and call this `IRIS` to match our other data set. We then apply a `right_join` to join the geographical data to the iris tibble that we have created. 
 
 ```{r irisshp, warning=FALSE,message=FALSE,error=FALSE}
 irisshp <- read_sf(dsn = "Data/iris", layer = "CONTOURS-IRIS") %>%
-  select(IRIS=CODE_IRIS) %>%
-  right_join(iris, by="IRIS")
+  select(IRIS=CODE_IRIS) %>% # here we do 2 things, select the column and rename it to IRIS
+  right_join(iris, by="IRIS") # join matching rows from irisshp to iris
 ```
 
 ### Plot data
@@ -308,7 +326,7 @@ We wish to plot a demography variable, such as the percentage of people over 75 
 ```{r join, warning=FALSE,message=FALSE,error=FALSE}
 iristoplot <- irisshp %>%
   # mutate(P13_POP75P_pc=ifelse(TYP_IRIS=="H", P13_POP75P_pc, NA)) %>%  ### optional line to exclude IRISes with no or few inhabitants
-  select(P13_POP75P_pc) 
+  select(P13_POP75P) # selects variable we are interested in
 
 plot(iristoplot)
 ```
@@ -325,10 +343,10 @@ The same plot by arrondissement is given by the following code.
 
 ```{r arrd, warning=FALSE,message=FALSE,error=FALSE}
 arrdshp <- read_sf(dsn = "Data/arrondissements", layer = "arrondissements") %>%
-  select(COM=c_arinsee) %>%
+  select(COM=c_arinsee) %>% 
   mutate(COM=as.character(COM)) %>%
   left_join(arrd, by="COM") %>%
-  select(P13_POP75P_pc)
+  select(P13_POP75P)
 
 plot(arrdshp)
 ```
@@ -336,6 +354,8 @@ plot(arrdshp)
 # Exercises
 
 1. Create a map of Paris by arrondissement with the percentage of immigrants 
-2. Create a map of the percentage of qualified professionals (cadre) in the French city of your choice (C13_POP15P_CS3)
+2. Choose a French city aside from Paris and create a map of the percentage of qualified professionals (cadre) by IRIS in that city (C13_POP15P_CS3)
 
-Upload your homework using the link on the home page.
+Comment each line of your code using `#` to demonstrate that you understand what each line is doing. 
+
+Upload your code and two maps using the link on the home page.
