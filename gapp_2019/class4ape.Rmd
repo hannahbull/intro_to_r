@@ -4,7 +4,6 @@ output:
  html_document:
     number_sections: true
     theme: cosmo
-    code_folding: hide
 ---
 
 <style>
@@ -126,7 +125,7 @@ $         | End of string
 Some examples: 
 
 Regex      | Meaning   | Some examples
-------------- | ------------- | -------------
+------------- | -------------------------------- | --------------------------
 `".*\\.jpg$"`             | Ending in .jpg | `"image1.jpg"`, `"Output/map.jpg"`
 `"^[A-B][:lower:]+.*"`       | Starting with A or B, followed by at least 1 lower case letter | `"Adam Smith"`
 `".*@gmail\\.com$"`       | Anything ending in @gmail.com | `"john.smith@gmail.com"`
@@ -145,7 +144,7 @@ XPaths are paths to html tags. For example, the XPath `/html/body/div[3]/div/tab
 
 If we are interested in scraping a certain object, such as a table or a link from a html page, then we can use the XPath of that object to access it. 
 
-In order to access the XPath of an object, we can right click somewhere on the object, click 'Examine element', then find the html tag of the object we would like to access. We can then right click on the html tag and copy the XPath to paste into our R code. For example, the XPath of the table containing the world leaders is `/html/body/div[3]/div[3]/div[4]/div/table[2]`. 
+In order to access the XPath of an object, we can right click somewhere on the object, click 'Examine element', then find the html tag of the object we would like to access. We can then right click on the html tag and copy the XPath to paste into our R code. . 
 
 We can also use the text contents of an object to specify the XPath. For example, the XPath `"//a[text()='Alain Berset']"` gives us all `<a>` tags with the text 'Alain Berset'. This is useful for finding links behind the text 'Alain Berset' on the Wikipedia page. 
 
@@ -162,15 +161,18 @@ In a first step, we aim to scrape the table of government leaders on the page [L
 We use the function `read_html` in the `rvest` package to read html data from a website. We use the function `html_nodes` to select the portion of the html document under a particular XPath. We then use `html_table` to extract the table under the XPath.
 
 ```{r readhtml, warning=FALSE,message=FALSE,error=FALSE}
-get_heads_tab <- "https://en.wikipedia.org/wiki/List_of_current_heads_of_state_and_government" %>%
-    read_html() %>%
-    html_nodes(xpath = '/html/body/div[3]/div[3]/div[4]/div/table[2]') %>%
-    html_table(fill=TRUE) %>%
-    .[[1]]
+# get webpage
+html_heads <- read_html("https://en.wikipedia.org/wiki/List_of_current_heads_of_state_and_government")
+
+# extract table
+df <- html_heads %>%
+  html_nodes(xpath = '/html/body/div[3]/div[3]/div[5]/div[1]/table[2]') %>%
+  html_table(fill=TRUE) %>%
+  .[[1]]
 ```
 
 ```{r datatable, warning=FALSE,message=FALSE,error=FALSE, echo=FALSE}
-datatable(get_heads_tab)
+datatable(df)
 ```
 
 ## The function `gsub`
@@ -178,12 +180,14 @@ datatable(get_heads_tab)
 The function `gsub` takes 3 main arguments. The first argument is a regular expression to replace, the second argument is a string to replace it with, and the final argument is the object in which to make this replacement. For example, we can remove all letters preceding `- `, or we can remove the string "Prince" at the start of a string. We use this to clean up the names of the world leaders, such that the text of the name is the text in the link to their Wikipedia page. 
 
 ```{r fungsub, warning=FALSE,message=FALSE,error=FALSE}
-heads <- get_heads_tab %>%
+df <- html_heads %>%
+  html_nodes(xpath = '/html/body/div[3]/div[3]/div[5]/div[1]/table[2]') %>%
+  html_table(fill=TRUE) %>%
+  .[[1]] %>%
   mutate(leader = gsub(".*– ", "", `Head of government`)) %>%
   mutate(leader = gsub(".*\u2013 ", "", leader)) %>% # this line is for the windows computers where the previous line does not work
   mutate(leader = gsub("^Sheikh |^Cardinal |^Prince ", "", leader)) %>%
   mutate(leader = gsub(" \\(.*$|\\[.*$", "", leader)) %>%
-  subset(State!="Switzerland" | (State=="Switzerland" & leader=="Ueli Maurer")) %>%
   mutate(leader = ifelse(leader=="Hasina", "Sheikh Hasina", leader)) %>%
   select(State, leader) %>%
   filter(!duplicated(State))
@@ -194,60 +198,48 @@ heads <- get_heads_tab %>%
 Links to other pages are contained within `<a>` tags. If we wish to extract the link behind the name "Alain Berset", for example, we can search for the `<a>` tag with the text "Alain Berset", then use the function `html_attr` to extract the link from the `<a>` tag. 
 
 ```{r getlinkleaderex, warning=FALSE,message=FALSE,error=FALSE}
-get_link_leader_example <-  "https://en.wikipedia.org/wiki/List_of_current_heads_of_state_and_government" %>%
-  read_html() %>%
-  html_nodes(xpath="//a[text()='Alain Berset']") %>% 
-  .[[1]] %>% 
-  html_attr("href")
-```
-
-## Making functions
-
-Based on the previous example of extracting the link for the Wikipedia page of "Alain Berset", we wish to construct a function called `get_link_leader`, which takes a text argument and outputs the link of the leader. 
-
-```{r getlinkleaderfn, warning=FALSE,message=FALSE,error=FALSE}
-get_link_leader <- function(leader_name){
-  "https://en.wikipedia.org/wiki/List_of_current_heads_of_state_and_government" %>%
-    read_html() %>%
-    html_nodes(xpath=paste0("//a[text()='", leader_name, "']")) %>% 
-    .[[1]] %>% 
-    html_attr("href")
-}
-```
-
-## Making a loop
-
-We can now integrate this function into a loop in order to extract the links for all the heads of government in a vector. 
-
-```{r getlinkleaderloop, results="hide", warning=FALSE,message=FALSE,error=FALSE}
-heads$link <- ""
-for (i in 1:nrow(heads)) {
+### useful function to get link behind text on webpage
+get_link_text <- function(text, html_page){
   tryCatch({
-    heads$link[i] <- get_link_leader(heads$leader[i])
-    print(paste("Got link for leader", heads$leader[i]))
+    html_page %>%
+      html_nodes(xpath=paste0("//a[text()='", text, "']")) %>% 
+      .[[1]] %>% 
+      html_attr("href")
   }, error = function(e) {
-    print(paste("Error for", heads$leader[i]))
+    print(paste("Error for", text))
   })
 }
+```
+
+We can now integrate this function into a `lapply` in order to extract the links for all the heads of government in a vector. 
+
+```{r getlinkleaderloop, results="hide", warning=FALSE,message=FALSE,error=FALSE}
+df <- html_heads %>%
+  html_nodes(xpath = '/html/body/div[3]/div[3]/div[5]/div[1]/table[2]') %>%
+  html_table(fill=TRUE) %>%
+  .[[1]] %>%
+  mutate(leader = gsub(".*– ", "", `Head of government`)) %>%
+  mutate(leader = gsub(".*\u2013 ", "", leader)) %>% # this line is for the windows computers where the previous line does not work
+  mutate(leader = gsub("^Sheikh |^Cardinal |^Prince ", "", leader)) %>%
+  mutate(leader = gsub(" \\(.*$|\\[.*$", "", leader)) %>%
+  mutate(leader = ifelse(leader=="Hasina", "Sheikh Hasina", leader)) %>%
+  select(State, leader) %>%
+  filter(!duplicated(State)) %>%
+  mutate(link_leader = lapply(leader, get_link_text, html_page=html_heads)) 
+  # lapply(LIST, FUNCTION, FIXED ARGUMENTS OF FUNCTION)
 ```
 
 # Extracting parties 
 
 In this step, we extract the political party and the Wikipedia link to the party from each of the pages of the world leaders from their respective Wikipedia pages. 
 
-## An example: the function `grepl`
-
-The function `grepl` has two main arguments, the first is a regular expression and the second is the string that we wish to search. The output is TRUE or FALSE depending on whether or not the regular expression matches the string. Here we use a regular expression to overcome various spellings and cases of "Political party".
-
 ```{r getpartyex, warning=FALSE,message=FALSE,error=FALSE}
-get_party_example <- "https://en.wikipedia.org/wiki/Donald_Trump" %>%
+## first do example
+get_link_party_example <- "https://en.wikipedia.org/wiki/Jean_Castex" %>%
   read_html() %>%
-  html_nodes(xpath='//table[contains(@class, "infobox")]') %>%
-  html_table(fill=TRUE) %>%
-  .[[1]] %>%
-  set_tidy_names() %>%
-  filter(grepl(".olitical.*arty", .[,1])) %>%
-  .[1,2]
+  html_nodes(xpath='//table[contains(@class, "infobox")]/tbody/tr/th[text()="Political party"]/../td/a') %>%
+  html_attr("href") %>%
+  tail(., n=1)
 ```
 
 ## Converting this example into a function
@@ -255,30 +247,29 @@ get_party_example <- "https://en.wikipedia.org/wiki/Donald_Trump" %>%
 We convert this example into a function of the political leader's Wikipedia page. 
 
 ```{r getpartyfn, warning=FALSE,message=FALSE,error=FALSE}
-get_party <- function(leader_link) {
+## then write function 
+get_link_party <- function(leader_link){
   paste0("https://en.wikipedia.org", leader_link) %>%
     read_html() %>%
-    html_nodes(xpath='//table[contains(@class, "infobox")]') %>%
-    html_table(fill=TRUE) %>%
-    .[[1]] %>%
-    set_tidy_names() %>%
-    filter(grepl('.olitical.*arty', .[,1])) %>%
-    .[1,2]
+    html_nodes(xpath='//table[contains(@class, "infobox")]/tbody/tr/th[text()="Political party"]/../td/a') %>%
+    html_attr("href") %>%
+    tail(., n=1)
 }
 ```
 
 ## Integrating the function into a loop
 
-As before, we incorporate this function into a loop with a tryCatch.
+We incorporate this function into a loop with a tryCatch.
 
 ```{r getpartyloop, results="hide", warning=FALSE,message=FALSE,error=FALSE}
-heads$political_party <- ""
-for (i in 1:nrow(heads)) {
+## then write loop
+df$link_party <- ""
+for (i in 1:nrow(df)) {
   tryCatch({
-    heads$political_party[i] <- get_party(heads$link[i])
-    print(paste("Got political party for", heads$leader[i]))
+    df$link_party[i] <- get_link_party(df$link_leader[i])
+    print(paste("Got link for party of", df$leader[i]))
   }, error = function(e) {
-    print(paste("Error for", heads$leader[i]))
+    print(paste("Error for", df$leader[i]))
   })
 }
 ```
@@ -289,47 +280,21 @@ for (i in 1:nrow(heads)) {
 We can correct any errors in the loop by hand. 
 
 ```{r correct, warning=FALSE,message=FALSE,error=FALSE}
-heads <- heads %>%
-  mutate(political_party=ifelse(leader=="Xi Jinping", "Communist Party of China", political_party))
-```
-
-## Extracting links to political parties 
-
-Here we repeat the same 3 steps in order to extract the links to each party. Firstly we construct and example, then we create a function, then we incorporate this function into a loop. 
-
-```{r getlinkpartyexample, results="hide", warning=FALSE,message=FALSE,error=FALSE}
-
-get_link_party_example <- "https://en.wikipedia.org/wiki/%C3%89douard_Philippe" %>%
-  read_html() %>%
-  html_nodes(xpath='//table[contains(@class, "infobox")]/tbody/tr/th[text()="Political party"]/../td/a') %>%
-  html_attr("href") %>%
-  tail(., n=1)
-
-get_link_party <- function(leader_link){
-  paste0("https://en.wikipedia.org", leader_link) %>%
-    read_html() %>%
-    html_nodes(xpath='//table[contains(@class, "infobox")]/tbody/tr/th[text()="Political party"]/../td/a') %>%
-    html_attr("href") %>%
-    tail(., n=1)
-}
-  
-heads$link_party <- ""
-for (i in 1:nrow(heads)) {
-  tryCatch({
-    heads$link_party[i] <- get_link_party(heads$link[i])
-    print(paste("Got link for party of", heads$leader[i]))
-  }, error = function(e) {
-    print(paste("Error for", heads$leader[i]))
-  })
-}
+df <- df %>%
+  mutate(link_party=ifelse(leader=="Angela Merkel", "/wiki/Christian_Democratic_Union_of_Germany", link_party))
 ```
 
 # Extracting political positions
 
-Extracting political positions from the links to the parties is left as an exercise. (See at the bottom of the page for the steps.)
+Now we wish to extract the political positions from the political party Wikipedia pages.
 
-```{r getlinkparty, include=FALSE, echo=FALSE,message=FALSE,error=FALSE}
-get_political_position_example <- "https://en.wikipedia.org/wiki/Socialist_Party_of_Albania" %>%
+## The function `grepl`
+
+The function `grepl` has two main arguments, the first is a regular expression and the second is the string that we wish to search. The output is TRUE or FALSE depending on whether or not the regular expression matches the string. Here we use a regular expression to overcome various spellings and cases of "Political position".
+
+```{r getlinkpartyquiz, eval=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+## first write example
+get_political_position_example <- "https://en.wikipedia.org/wiki/La_R%C3%A9publique_En_Marche!" %>%
   read_html() %>%
   html_nodes(xpath='//table[contains(@class, "infobox")]') %>%
   html_table(fill=TRUE) %>%
@@ -338,6 +303,30 @@ get_political_position_example <- "https://en.wikipedia.org/wiki/Socialist_Party
   filter(grepl('*olitical.*osition', .[,1])) %>%
   .[1,2]
 
+## then write function 
+get_political_position <- function(party_link){
+  ### FILL HERE
+}
+
+## then write loop 
+df$political_position <- ""
+for (i in 1:nrow(df)) {
+  ### FILL HERE
+}
+```
+
+```{r getlinkparty, include=FALSE, echo=FALSE,message=FALSE,error=FALSE}
+## first write example
+get_political_position_example <- "https://en.wikipedia.org/wiki/La_R%C3%A9publique_En_Marche!" %>%
+  read_html() %>%
+  html_nodes(xpath='//table[contains(@class, "infobox")]') %>%
+  html_table(fill=TRUE) %>%
+  .[[1]] %>%
+  set_tidy_names() %>%
+  filter(grepl('*olitical.*osition', .[,1])) %>%
+  .[1,2]
+
+## then write function 
 get_political_position <- function(party_link){
   paste0("https://en.wikipedia.org", party_link) %>%
     read_html() %>%
@@ -349,19 +338,20 @@ get_political_position <- function(party_link){
     .[1,2]
 }
 
-heads$political_position <- ""
-for (i in 1:nrow(heads)) {
+## then write loop 
+df$political_position <- ""
+for (i in 1:nrow(df)) {
   tryCatch({
-    heads$political_position[i] <- get_political_position(heads$link_party[i])
-    print(paste("Got political position of", heads$leader[i]))
+    df$political_position[i] <- get_political_position(df$link_party[i])
+    print(paste("Got political position of", df$leader[i]))
   }, error = function(e) {
-    print(paste("Error for", heads$leader[i]))
+    print(paste("Error for", df$leader[i]))
   })
 }
 ```
 
 ```{r printtable, echo=FALSE,message=FALSE,error=FALSE}
-datatable(heads)
+datatable(df)
 ```
 
 # Creating a map 
@@ -369,54 +359,62 @@ datatable(heads)
 Here we use regular expressions and functions that you know already in order to plot the political orientation of leaders on a world map. 
 
 ```{r cleaningmap, message=FALSE,error=FALSE, warning=FALSE}
-heads <- heads %>%
-  mutate(political_position_clean=gsub("\\(.*\\)|\\[.*\\]|:", "", political_position)) %>%
+## Cleaning
+political_classification = c("far left","left wing","centre left to left wing", "centre left", 
+                             "centre to centre left", "centre/big tent", "centre to centre right", "centre right",
+                             "centre right to right wing", "right wing", "unavailable")
+
+df_clean <- df %>%
+  select(State, political_position) %>%
+  mutate(political_position_clean = political_position) %>%
+  mutate(political_position_clean=gsub("^[^:]+:", " ", political_position_clean)) %>%
+  mutate(political_position_clean=gsub(":.*$", " ", political_position_clean)) %>%
+  mutate(political_position_clean=gsub("[0-9]{4}.*$", " ", political_position_clean)) %>%
+  mutate(political_position_clean=gsub("\\([^()]*\\)", "", political_position_clean)) %>%
+  mutate(political_position_clean=gsub("\\[[^[]]*\\]", "", political_position_clean)) %>%
   mutate(political_position_clean=tolower(political_position_clean)) %>%
+  mutate(political_position_clean=gsub("[^a-z ]", " ", political_position_clean)) %>%
   mutate(political_position_clean=str_trim(political_position_clean)) %>%
-  mutate(political_position_clean=gsub("currently|current|.*present|formerly.*|[0-9].*|\\,.*", "", political_position_clean)) %>%
-  mutate(political_position_clean=gsub("histor.*", "", political_position_clean)) %>%
-  mutate(political_position_clean=gsub("de facto.*", "", political_position_clean)) %>%
-  mutate(political_position_clean=gsub("de jure :", "", political_position_clean)) %>%
-  mutate(political_position_clean=gsub("-", " ", political_position_clean)) %>%
   mutate(political_position_clean=ifelse(political_position_clean=="", NA, political_position_clean)) %>%
-  mutate(political_position_clean=ifelse(is.na(political_position_clean), "unavailable", political_position_clean)) %>%
   mutate(political_position_clean=gsub("center", "centre", political_position_clean)) %>%
+  mutate(political_position_clean=gsub("tocentre", "to centre", political_position_clean)) %>%
+  mutate(political_position_clean=gsub("toright", "to right", political_position_clean)) %>%
+  mutate(political_position_clean=gsub(" formerly", "", political_position_clean)) %>%
+  mutate(political_position_clean=gsub("historical", "", political_position_clean)) %>%
+  mutate(political_position_clean=gsub(" correa era", "", political_position_clean)) %>%
+  mutate(political_position_clean=gsub(" citation needed", "", political_position_clean)) %>%
+  mutate(political_position_clean=gsub("economic", "", political_position_clean)) %>%
+  mutate(political_position_clean=gsub("after", "", political_position_clean)) %>%
+  mutate(political_position_clean=str_trim(political_position_clean)) %>%
+  mutate(political_position_clean=gsub("centre left to centre right", "centre", political_position_clean)) %>%
   mutate(political_position_clean=gsub("big tent of the left", "big tent", political_position_clean)) %>%
   mutate(political_position_clean=gsub("big tent", "centre/big tent", political_position_clean)) %>%
-  mutate(political_position_clean=gsub("catch all", "centre/big tent", political_position_clean)) %>%
-  mutate(political_position_clean=gsub("centre left to centre", "centre to centre left", political_position_clean)) %>%
   mutate(political_position_clean=gsub("^centre$", "centre/big tent", political_position_clean)) %>%
-  mutate(political_position_clean=as_factor(political_position_clean)) %>%
+  mutate(political_position_clean = ifelse(political_position_clean %in% political_classification, political_position_clean, NA)) %>%
   mutate(iso3 = countrycode(State, "country.name", "iso3c")) %>%
-  mutate(political_position_clean=factor(political_position_clean,
-                                         levels =c("far left", "left wing to far left" ,"left wing","centre left to left wing", "centre left", 
-                                                   "centre to centre left", "centre/big tent", "centre to centre right", "centre right",
-                                                   "centre right to right wing", "right wing", "right wing to far right", "far right", "unavailable"),
-                                         labels =c("far left","left wing to far left", "left wing","centre left to left wing", "centre left", 
-                                                   "centre to centre left", "centre/big tent", "centre to centre right", "centre right",
-                                                   "centre right to right wing", "right wing", "right wing to far right", "far right", "unavailable"))) %>%
   mutate(iso3 = ifelse(State=="Micronesia", "FSM", iso3))
 
-map.world <- map_data("world") %>%
+map_world <- map_data("world") %>%
   mutate(iso3 = countrycode(region, "country.name", "iso3c")) %>%
   mutate(iso3 = ifelse(region=="Micronesia", "FSM", iso3)) %>%
-  right_join(heads, by="iso3") 
-  
-plot <- ggplot() +
-  geom_polygon(data = map.world, aes(x = long, y = lat, group = group, fill = political_position_clean)) +
-  scale_fill_manual(values = c("#FF0000","#E90015","#D4002A", "#BF003F", "#AA0055", 
-                               "#94006A", "#7F007F", "#6A0094","#5500AA", "#3F00BF", 
-                               "#2A00D4","#1500E9", "#0000FF", "#bebebe")) + coord_fixed()
+  left_join(df_clean, by="iso3") %>%
+  mutate(political_position_clean=ifelse(is.na(political_position_clean), "unavailable", political_position_clean)) %>%
+  mutate(political_position_clean=factor(political_position_clean,
+                                         levels = political_classification,
+                                         labels = political_classification))
 
-# plot
+plot <- ggplot() +
+  geom_polygon(data = map_world, aes(x = long, y = lat, group = group, fill = political_position_clean)) +
+  scale_fill_manual(values = c("#FF0000","#E2001C","#C60038", "#AA0055", "#8D0071", 
+                               "#71008D", "#5500AA", "#3800C6","#1C00E2", "#0000FF", "#bebebe")) + coord_fixed()
+
 ggsave("Output/worldmappolitics.jpg", width = 20, height=12, device = "jpg")
 ```
 
 # Exercises
 
-1. Modify the code used to extract the political party off the Wikipedia page of a leader in order to extract the political orientation off a Wikipedia page of a party.
-2. Create a function using this example which takes the link of a party as the input. 
-3. Write a loop using this function to extract the politicial orientations off the Wikipedia pages of each party. 
-4. Use the code in the final section to clean the political orientations and produce the map. 
+1. Fill in the code blanks
+2. Comment the lines of the code that are unclear to you
+3. Correct a few errors for countries that were not scrapped correctly
 
-Upload your script at the link provided on the homepage.
+Upload your script and .jpg map at the link provided on the homepage.

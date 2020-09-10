@@ -4,7 +4,6 @@ output:
  html_document:
     number_sections: true
     theme: cosmo
-    code_folding: hide
 ---
 
 <style>
@@ -57,7 +56,11 @@ For this exercise, we use a survey from the French Ministry of education on youn
 
 Let's load the data:
 ```{r readingx2, warning=FALSE,message=FALSE,error=FALSE}
-df <- read_delim(file = "Data/fr-esr-insertion_professionnelle-master.csv", delim = ";", col_names = TRUE, skip = 0, locale = locale(encoding = "UTF-8"))
+df <- read_delim(file = "Data/fr-esr-insertion_professionnelle-master.csv", 
+                 delim = ";", 
+                 col_names = TRUE, 
+                 skip = 0, 
+                 locale = locale(encoding = "UTF-8"))
 ```
 
 # Inspecting the data 
@@ -85,8 +88,8 @@ The `summary` function tells us that the dataset contains both numeric and chara
 The type of a variable matters a lot. For instance, R will not let you make operations on a character variable that only contains integers. To convince yourself, try to run this piece of code:
 
 ```{r typeofvars, warning=FALSE,message=FALSE, error=FALSE, results = 'hide', eval = FALSE}
-char.var <- as.character(c(1,2,3))
-char.var + 2
+char_vec <- as.character(c(1,2,3))
+char_vec + 2
 ```
 
 # Cleaning the data (revision)
@@ -115,7 +118,7 @@ df_clean <- df %>%
 ```{r arrdtab123, echo = FALSE, warning = FALSE, message = FALSE, error = FALSE}
 df_clean <- df %>% 
             mutate_at(vars(nombre_de_reponses:salaire_net_mensuel_regional_3eme_quartile), 
-                      funs(as.numeric(.)))
+                      ~ (as.numeric(.)))
 ```
 
 Let's have a look at our brand new dataset !
@@ -131,19 +134,19 @@ This is already a much more tractable dataset. Let's now assess the quality of o
 ```{r missingvalues, warning=FALSE,message=FALSE,error=FALSE,eval = FALSE}
 missing <- df_clean %>% 
   ### FILL HERE (one line)
-  summarise_all(funs(mean(!is.na(.))))
+  summarise_all(~ (mean(!is.na(.))))
 ```
 
 ```{r missingvalues123, echo = FALSE, warning = FALSE, message = FALSE, error = FALSE}
 missing <- df_clean %>% 
   select_if(is.numeric) %>% 
-  summarise_all(funs(mean(!is.na(.))))
+  summarise_all(~ (mean(!is.na(.))))
 ```
 
 Unfortunately, our dataset has a lot of missing values. We need to keep this in mind since it will impact a lot the way we can interpret our results. It will also have an impact on the options to specfify in order to be able to use basic R functions. For instance, try to compute the mean of the variable `femmes` (women) using the `mean()` function.
 
 ```{r meanmissing, warning=FALSE,message=FALSE,error=FALSE}
-mean_women <- mean(df_clean$femmes, na.rm=T)
+mean(df_clean$femmes, na.rm=T)
 ```
 
 The option *na.rm=T* tells R to discard missing values, and make its computations on filled values only. If you simply write `mean(df_clean$femmes)`, R returns a missing value because it fails to compute the mean of a vector containing non-numeric elements. 
@@ -227,21 +230,21 @@ plot1 <- ggplot(df_graph, aes(x=taux_dinsertion)) +
   labs(x = "Employment rates")
 ```
 
-Suppose you now want to add a vertical line that shows the mean of the distribution to the graph. First, create a dataset called **df.mean.empl** that contains the variable **mean.empl**, where **mean.empl** is the average employment rate. Do not forget to tell R to discard missing values.
+Suppose you now want to add a vertical line that shows the mean of the distribution to the graph. First, create a dataset called **df_mean_empl** that contains the variable **mean_empl**, where **mean_empl** is the average employment rate. Do not forget to tell R to discard missing values.
 
-```{r mean.year, warning=FALSE,message=FALSE,error=FALSE}
-df.mean.empl<- df_graph %>% 
-  summarise(mean.empl = mean(taux_dinsertion, na.rm=T))
+```{r mean_year, warning=FALSE,message=FALSE,error=FALSE}
+df_mean_empl<- df_graph %>% 
+  summarise(mean_empl = mean(taux_dinsertion, na.rm=T))
 ```
 
-Second, use the `geom_vline` geom to add the mean to the graph. The `geom_vline` geom adds a vertical line at the value of the x axis that you specify in the aesthetics: `aes(xintercept= value)`. We have stored the "value" information in the variable **mean.empl**, which is itself in the **df.mean.empl** data frame. In order to call the `geom_vline` geom, let's give all these pieces of information to R, by using the following syntax: `geom_vline(data=mean.empl, aes(xintercept= empl.mean), options)`
+Second, use the `geom_vline` geom to add the mean to the graph. The `geom_vline` geom adds a vertical line at the value of the x axis that you specify in the aesthetics: `aes(xintercept= value)`. We have stored the "value" information in the variable **mean_empl**, which is itself in the **df_mean_empl** data frame. In order to call the `geom_vline` geom, let's give all these pieces of information to R, by using the following syntax: `geom_vline(data=mean_empl, aes(xintercept= empl_mean), options)`
 
 ```{r plot3bis, warning=FALSE,message=FALSE,error=FALSE}
 plot1 <- ggplot(df_graph, aes(x=taux_dinsertion)) +
   geom_histogram() +
   theme_classic() +
   labs(x = "Employment rates") +
-  geom_vline(data=df.mean.empl, aes(xintercept=mean.empl), linetype="dashed", size=1) 
+  geom_vline(data=df_mean_empl, aes(xintercept=mean_empl), linetype="dashed", size=1) 
 
 plot1
 ```
@@ -260,17 +263,17 @@ Two elements are necessary in order to make subgroup plots:
 Let's try and see whether the distribution of employment rates has changed between 2010 and 2014. In order to do this, we first need to convert the variable **annee** (year) to a factor variable. 
 
 ```{r plot4, warning=FALSE,message=FALSE,error=FALSE}
-df_graph.evol  <- df_graph %>% 
+df_graph_evol  <- df_graph %>% 
                   filter(annee %in% c("2010","2014")) %>% 
-                  mutate_at(vars(annee), funs(factor(.)))
+                  mutate_at(vars(annee), ~ (factor(.)))
 ```
 
-By adding the `fill = condition` option in the aesthetics of the first layer, you can tell R that it needs to plot as many histograms as there are values in the **condition** variable (or grouping variable, in our case: **annee**). The first layer hence becomes: `ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee))`.
+By adding the `fill = condition` option in the aesthetics of the first layer, you can tell R that it needs to plot as many histograms as there are values in the **condition** variable (or grouping variable, in our case: **annee**). The first layer hence becomes: `ggplot(df_graph_evol, aes(x=taux_dinsertion, fill = annee))`.
 
 You can also enter arguments such as `position` or `binwidth` to the `geom_histogram` layer to adjust the design of the graph. For instance, you may want to put the two distributions side by side. In this case you need to specify the option `position="dodge"`.
 
 ```{r plot5, warning=FALSE,message=FALSE,error=FALSE}
-plot2 <- ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee)) + 
+plot2 <- ggplot(df_graph_evol, aes(x=taux_dinsertion, fill = annee)) + 
   geom_histogram(binwidth=1, position="dodge") + 
   theme_classic() +
   labs(x = "Employment rates")
@@ -280,7 +283,7 @@ Alternatively, you may want to overlay the two densities ; in this case you need
 
 ```{r plot6, warning=FALSE,message=FALSE,error=FALSE}
 
-plot2 <- ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee)) + 
+plot2 <- ggplot(df_graph_evol, aes(x=taux_dinsertion, fill = annee)) + 
   geom_histogram(binwidth=.5, alpha=.5, position="identity") + 
   theme_classic() +
   labs(x = "Employment rates")
@@ -288,23 +291,23 @@ plot2 <- ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee)) +
 ```
 
 Let's now add the means of the distributions to the graph. 
-First, create a dataset called **mean.empl.year** that contains the variables **annee** and **mean.empl**, where **mean.empl** takes as values the employment rates in each year.
+First, create a dataset called **mean_empl_year** that contains the variables **annee** and **mean_empl**, where **mean_empl** takes as values the employment rates in each year.
 
 ```{r plot7, warning=FALSE,message=FALSE,error=FALSE}
-mean.empl.year <- df_graph.evol %>% 
+mean_empl_year <- df_graph_evol %>% 
   group_by(annee) %>% 
-  summarise(mean.empl = mean(taux_dinsertion, na.rm = T)) %>%
+  summarise(mean_empl = mean(taux_dinsertion, na.rm = T)) %>%
   ungroup()
 ```
 
 Second, use `geom_vline` command to add the means to the graph. It's close to what you've done before, but do not forget to use the **colour** option in the aesthetics to tell R that the colour of the lines should refer to the variable **annee**. The syntax is hence the following: `geom_vline(data, aes(xintercept, colour=annee), options)`.
 
 ```{r plot7bis, warning=FALSE,message=FALSE,error=FALSE}
-plot2 <- ggplot(df_graph.evol, aes(x=taux_dinsertion, fill = annee)) + 
+plot2 <- ggplot(df_graph_evol, aes(x=taux_dinsertion, fill = annee)) + 
   geom_histogram(binwidth=.5, alpha=.5, position="identity") + 
   theme_classic() +
   labs(x = "Employment rates") +
-  geom_vline(data=mean.empl.year, aes(xintercept=mean.empl,  colour=annee), linetype="dashed", size=1) 
+  geom_vline(data=mean_empl_year, aes(xintercept=mean_empl,  colour=annee), linetype="dashed", size=1) 
 
 plot2
 ```
@@ -312,7 +315,7 @@ plot2
 You can now save your graph as pdf  in the Output folder using `ggsave`.
 
 ```{r saveplot, warning=FALSE,message=FALSE,error=FALSE}
-ggsave("Output/hist.empl.rate.pdf", width = 5, height = 5)
+ggsave("Output/hist_empl.rate.pdf", width = 5, height = 5)
 ```
 
 ## Two-variable case
@@ -361,7 +364,7 @@ Let's try and see how the subjects in which the students graduated (**code_du_do
 ```{r dfcrosstabulation, warning=FALSE,message=FALSE,error=FALSE}
 df_women <- df_women %>%
             mutate(quartile_women = ntile(femmes, 4)) %>%
-            mutate_at(vars(code_du_domaine), funs(factor(.,
+            mutate_at(vars(code_du_domaine), ~ (factor(.,
                                    levels = c("DEG","LLA","MEEF","SHS","STS"),
                                    labels = c("Economics", "Humanities", "Teaching","Human Sciences","Sciences"))))
 ```
@@ -369,7 +372,12 @@ df_women <- df_women %>%
 Let's now see the distribution of subjects based on the quartile to which the university belongs using `crosstab`. The syntax of the function is as follows: crosstab(x,y,options). In the options you can specify that you want to see the proportions in rows (i.e. you want the row percentages to sum to 100) by typing `prop.r =T`. 
 
 ```{r crosstabulation, warning=FALSE,message=FALSE,error=FALSE}
-crosstab(df_women$quartile_women,df_women$code_du_domaine, prop.r =T, plot = F, cell.layout = F, dnn = c("Quartiles","Subjects"))
+crosstab(df_women$quartile_women, 
+         df_women$code_du_domaine, 
+         prop.r =T, 
+         plot = F, 
+         cell.layout = F, 
+         dnn = c("Quartiles","Subjects"))
 ```
 
 ## One continuous and one categorical variable
@@ -435,7 +443,6 @@ tidy(fit)
 ## Statistical tests
 
 Statistical tests are very useful tools of statistical inference. We will here see how to implement two kinds of tests: 
-
 * Student's t-test of equality of means
 * The Chi-square test of independence
 
